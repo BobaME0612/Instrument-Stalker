@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instrument Installation Tracking Dashboard</title>
+  <link rel="stylesheet" href="styles.css?v=5">
+  <!-- Chart.js for charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- SheetJS for Excel/CSV processing -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Supabase JS Client SDK Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-icon" style="background: none; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+          <img src="stalker.png" alt="Stalker Icon" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px;">
+        </div>
+        <div class="logo-text">
+          <h1>I-Stalker 24/7</h1>
+          <p>Instrument Stalker</p>
+        </div>
+      </div>
+      
+      <div class="project-section" style="padding-bottom: 0; flex: none;">
+        <div class="section-label">Overview</div>
+        <div class="project-list" id="globalNavList">
+          <div class="project-item" id="btnGlobalDashboard" role="button" tabindex="0" style="flex-direction: row; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+            Global Dashboard
+          </div>
+        </div>
+      </div>
+      
+      <div class="project-section" style="padding-top: 10px;">
+        <div class="section-label">Sub-Projects</div>
+        <div class="project-list" id="projectList" role="list">
+          <!-- Dynamic Project Items -->
+        </div>
+      </div>
+      
+      <div class="sidebar-footer">
+        <button class="btn-new-project" id="btnNewProject" title="Create a new sub-project workspace">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          New Project
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Dashboard Area -->
+    <main class="main-content">
+      <!-- Top Dashboard Header -->
+      <header class="dashboard-header">
+        <div class="project-info">
+          <h2 id="activeProjectName">Project Loading...</h2>
+          <p id="activeProjectDesc">Loading project description...</p>
+        </div>
+        <div class="header-actions">
+          <div class="clock-widget" id="systemClock">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <span id="timeString">00:00:00</span>
+          </div>
+          <button class="btn-secondary" id="btnThemeToggle" title="Switch Theme" style="padding: 0; display: inline-flex; align-items: center; justify-content: center; height: 38px; width: 38px; border-radius: 8px;">
+            <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </button>
+          <button class="btn-critical" id="btnBulkDelete" title="Delete selected instruments" style="display: none; align-items: center; justify-content: center; height: 38px; padding: 0 16px; margin-right: 8px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+            &nbsp;Delete Selected (<span id="selectedCountText">0</span>)
+          </button>
+          <button class="btn-primary" id="btnAddInstrument" title="Add a new instrument to this project">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Add Instrument
+          </button>
+        </div>
+      </header>
+
+      <!-- KPI Summary Cards -->
+      <section class="kpi-grid" aria-label="Key Performance Indicators" id="kpiSection">
+        <div class="kpi-card" style="--accent-color: var(--primary);" id="cardTotal">
+          <span class="kpi-title">Total Instruments</span>
+          <div class="kpi-value-container">
+            <span class="kpi-value" id="kpiTotalVal">0</span>
+            <span class="kpi-percentage">Units</span>
+          </div>
+        </div>
+        <div class="kpi-card" style="--accent-color: var(--progress-accent);" id="cardInstalled">
+          <span class="kpi-title">Installed</span>
+          <div class="kpi-value-container">
+            <span class="kpi-value" id="kpiInstalledVal">0</span>
+            <span class="kpi-percentage" id="kpiInstalledPct">0%</span>
+          </div>
+        </div>
+        <div class="kpi-card" style="--accent-color: var(--calibrated-accent);" id="cardCabling">
+          <span class="kpi-title">Cabling</span>
+          <div class="kpi-value-container">
+            <span class="kpi-value" id="kpiCablingVal">0</span>
+            <span class="kpi-percentage" id="kpiCablingPct">0%</span>
+          </div>
+        </div>
+        <div class="kpi-card" style="--accent-color: var(--commissioned-accent);" id="cardLoopCheck">
+          <span class="kpi-title">Loop Check</span>
+          <div class="kpi-value-container">
+            <span class="kpi-value" id="kpiLoopCheckVal">0</span>
+            <span class="kpi-percentage" id="kpiLoopCheckPct">0%</span>
+          </div>
+        </div>
+        <div class="kpi-card" style="--accent-color: var(--pending-accent);" id="cardCalibrated">
+          <span class="kpi-title">Calibrated</span>
+          <div class="kpi-value-container">
+            <span class="kpi-value" id="kpiCalibratedVal">0</span>
+            <span class="kpi-percentage" id="kpiCalibratedPct">0%</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sub-Projects Selector Checklist (Only in Global view) -->
+      <section class="toolbar-card" id="globalProjectSelectorCard" style="display: none;">
+        <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.05em;">
+          Select Sub-Projects to Aggregate
+        </div>
+        <div id="globalProjectChecklist" style="display: flex; flex-wrap: wrap; gap: 20px;">
+          <!-- Checkboxes generated dynamically in JS -->
+        </div>
+      </section>
+
+      <!-- Toolbar / Import Export Options -->
+      <section class="toolbar-card" aria-label="Spreadsheet Utilities" id="toolbarSection">
+        <div class="toolbar-layout">
+          <div class="file-ops-group">
+            <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" style="display: none;">
+            <button class="btn-secondary" id="btnImportExcel" title="Import instruments from Excel or CSV file">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              Import Excel/CSV
+            </button>
+            <button class="btn-secondary" id="btnExportExcel" title="Export current project data to an Excel file">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              Export Excel
+            </button>
+            <button class="btn-secondary" id="btnDownloadTemplate" title="Download CSV template format">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+              Download Template
+            </button>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-muted);">
+            Active Project Progress: <strong id="overallProgressText" style="color: var(--primary);">0%</strong>
+          </div>
+        </div>
+      </section>
+
+      <!-- Analytics Charts -->
+      <section class="analytics-grid" aria-label="Visual Progress Analytics" id="chartsSection">
+        <!-- Status Donut Chart -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <h3>Status Distribution</h3>
+            <p>Count of instruments by current milestone status</p>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="statusChart"></canvas>
+          </div>
+        </div>
+        <!-- Progress by Area Bar Chart -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <h3>Completion Progress by Area</h3>
+            <p>Average installation progress percentage (%) across plant locations</p>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="areaChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Table Section -->
+      <section class="table-card" aria-label="Instrument Database" id="tableSection">
+        <div class="filters-header">
+          <div class="filters-row">
+            <div class="search-box-container">
+              <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input type="text" id="searchBar" placeholder="Search Tag, Name or Technician..." aria-label="Search instruments">
+            </div>
+            
+            <select class="filter-select" id="filterType" aria-label="Filter by Type">
+              <option value="">All Types</option>
+              <option value="Flow Transmitter">Flow Transmitter</option>
+              <option value="Level Transmitter">Level Transmitter</option>
+              <option value="Pressure Transmitter">Pressure Transmitter</option>
+              <option value="Temperature Transmitter">Temperature Transmitter</option>
+              <option value="Gauge">Gauge</option>
+              <option value="Moter Operate Valve">Moter Operate Valve</option>
+              <option value="Control/ONOFF Valve">Control/ONOFF Valve</option>
+              <option value="Other">Other</option>
+            </select>
+            
+            <select class="filter-select" id="filterStatus" aria-label="Filter by Status">
+              <option value="">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Calibrated">Calibrated</option>
+              <option value="Commissioned">Commissioned</option>
+            </select>
+            
+            <select class="filter-select" id="sortBy" aria-label="Sort by">
+              <option value="tag">Sort by: Tag No</option>
+              <option value="progressDesc">Sort by: Progress (High-Low)</option>
+              <option value="progressAsc">Sort by: Progress (Low-High)</option>
+              <option value="lastUpdated">Sort by: Latest Update</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table" id="instrumentTable">
+            <thead>
+              <tr>
+                <th style="width: 40px; text-align: center; padding: 14px 10px;">
+                  <input type="checkbox" id="selectAllInstruments" style="cursor: pointer; width: 15px; height: 15px;">
+                </th>
+                <th>KKS No.</th>
+                <th>Instrument Detail</th>
+                <th>System</th>
+                <th style="text-align: center;">Calibrated</th>
+                <th style="text-align: center;">Installed</th>
+                <th style="text-align: center;">Cabling</th>
+                <th style="text-align: center;">Loop Check</th>
+                <th>Progress</th>
+                <th>Latest Update</th>
+                <th style="width: 100px; text-align: center;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="instrumentTableBody">
+              <!-- Dynamic Table Rows -->
+            </tbody>
+          </table>
+          
+          <!-- Empty State -->
+          <div class="empty-state" id="emptyState" style="display: none;">
+            <h4>No Instruments Found</h4>
+            <p>Try clearing filters or click "Add Instrument" to create one manually.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Details Side Drawer Panel -->
+    <section class="details-drawer" id="detailsDrawer" aria-modal="true" role="dialog" aria-label="Instrument Details">
+      <div class="drawer-header">
+        <div class="drawer-title-group">
+          <span class="tag-mono" id="drawerTag" style="font-size: 1rem;">TAG-000</span>
+        </div>
+        <button class="modal-close-btn" id="btnDrawerClose" aria-label="Close details panel">&times;</button>
+      </div>
+      
+      <div class="drawer-body">
+        <!-- Section 1: Details -->
+        <div>
+          <div class="drawer-section-title">Instrument Info</div>
+          <div class="info-grid">
+            <div>
+              <div class="info-label">Name</div>
+              <div class="info-val" id="drawerName">N/A</div>
+            </div>
+            <div>
+              <div class="info-label">Type</div>
+              <div class="info-val" id="drawerType">N/A</div>
+            </div>
+            <div>
+              <div class="info-label">System</div>
+              <div class="info-val" id="drawerArea">N/A</div>
+            </div>
+            <div>
+              <div class="info-label">Latest Update</div>
+              <div class="info-val" id="drawerLatestUpdate">N/A</div>
+            </div>
+            <div>
+              <div class="info-label">PID Drawing</div>
+              <div class="info-val" id="drawerPidDrawing">N/A</div>
+            </div>
+            <div>
+              <div class="info-label">Spec Drawing</div>
+              <div class="info-val" id="drawerSpecDrawing">N/A</div>
+            </div>
+          </div>
+          <div style="margin-top: 12px;">
+            <div class="info-label">Location</div>
+            <div class="info-val" id="drawerLocation" style="font-weight: normal; line-height: 1.4; color: var(--text-muted);">No location provided.</div>
+          </div>
+        </div>
+
+        <!-- Section 2: Milestone Tasks Checklist -->
+        <div>
+          <div class="drawer-section-title">Milestone Tasks</div>
+          <div class="milestones-list">
+            <label class="milestone-item">
+              <input type="checkbox" class="milestone-checkbox" id="chkCalibrated">
+              <div class="milestone-label-group">
+                <span class="milestone-title">Calibrated</span>
+                <span class="milestone-desc">Instrument calibration check and verification complete</span>
+              </div>
+            </label>
+            <label class="milestone-item">
+              <input type="checkbox" class="milestone-checkbox" id="chkInstallation">
+              <div class="milestone-label-group">
+                <span class="milestone-title">Installed</span>
+                <span class="milestone-desc">Physical mounting and fitting complete at site</span>
+              </div>
+            </label>
+            <label class="milestone-item" id="chkCablingWrapper">
+              <input type="checkbox" class="milestone-checkbox" id="chkCabling">
+              <div class="milestone-label-group">
+                <span class="milestone-title">Cabling</span>
+                <span class="milestone-desc">Power/signal cables terminated and glanded</span>
+              </div>
+            </label>
+            <label class="milestone-item" id="chkLoopCheckWrapper">
+              <input type="checkbox" class="milestone-checkbox" id="chkLoopCheck">
+              <div class="milestone-label-group">
+                <span class="milestone-title">Loop Check</span>
+                <span class="milestone-desc">End-to-end loop check and DCS/PLC signals verified</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Section 3: History Logs -->
+        <div>
+          <div class="drawer-section-title">Activity Timeline Logs</div>
+          <div class="logs-timeline" id="drawerLogsList">
+            <!-- Dynamic logs -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Modal: Add / Edit Instrument Form -->
+    <div class="modal-backdrop" id="instrumentModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modalTitle">Add Instrument</h3>
+          <button class="modal-close-btn" id="btnModalClose" aria-label="Close dialog">&times;</button>
+        </div>
+        <form id="instrumentForm">
+          <input type="hidden" id="instFormId">
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="instTag">KKS No. *</label>
+              <input type="text" class="form-input" id="instTag" placeholder="e.g. PIT-101A" required style="font-family: var(--font-mono); font-weight: 600;">
+            </div>
+            
+            <div class="form-group">
+              <label for="instName">Instrument Name *</label>
+              <input type="text" class="form-input" id="instName" placeholder="e.g. Main Steam Pressure Transmitter" required>
+            </div>
+            
+             <div class="form-group">
+              <label for="instType">Instrument Type *</label>
+              <select class="form-select" id="instType" required>
+                <option value="Flow Transmitter">Flow Transmitter</option>
+                <option value="Level Transmitter">Level Transmitter</option>
+                <option value="Pressure Transmitter">Pressure Transmitter</option>
+                <option value="Temperature Transmitter">Temperature Transmitter</option>
+                <option value="Gauge">Gauge</option>
+                <option value="Moter Operate Valve">Moter Operate Valve</option>
+                <option value="Control/ONOFF Valve">Control/ONOFF Valve</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="instArea">System *</label>
+              <input type="text" class="form-input" id="instArea" placeholder="e.g. Boiler Area A, Turbine Hall, WTP" list="areaSuggestions" required>
+              <datalist id="areaSuggestions">
+                <option value="Boiler Area A"></option>
+                <option value="Turbine Hall"></option>
+                <option value="Water Treatment Plant"></option>
+                <option value="Fuel Handling System"></option>
+                <option value="Chimney Stack"></option>
+              </datalist>
+            </div>
+            
+            <div class="form-group">
+              <label for="instPidDrawing">PID Drawing</label>
+              <input type="text" class="form-input" id="instPidDrawing" placeholder="e.g. PID-1002-01">
+            </div>
+            
+            <div class="form-group">
+              <label for="instSpecDrawing">Spec Drawing</label>
+              <input type="text" class="form-input" id="instSpecDrawing" placeholder="e.g. SPEC-FIT-103">
+            </div>
+
+
+            
+            <div class="form-group">
+              <label for="instNotes">Location</label>
+              <textarea class="form-textarea" id="instNotes" placeholder="e.g. Boiler drum level gauge standpipe, elevation 12m..."></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary" id="btnCancelForm">Cancel</button>
+            <button type="submit" class="btn-primary" id="btnSaveForm">Save Details</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal: Excel/CSV Import Preview -->
+    <div class="modal-backdrop" id="importModal">
+      <div class="modal-card" style="max-width: 750px;">
+        <div class="modal-header">
+          <h3>Import Preview & Column Mapping</h3>
+          <button class="modal-close-btn" id="btnImportClose" aria-label="Close dialog">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+            We successfully parsed your file. Below is a preview of the columns mapped to our fields. Tag is required; missing tags or columns will highlight errors.
+          </p>
+          <div class="preview-table-container">
+            <table class="preview-table" id="importPreviewTable">
+              <thead>
+                <!-- Columns dynamically mapped -->
+              </thead>
+              <tbody id="importPreviewTableBody">
+                <!-- Preview data -->
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top: 14px; font-size: 0.85rem;">
+            Total items detected: <strong id="importSummaryTotal">0</strong> | 
+            Valid for import: <strong id="importSummaryValid" style="color: var(--commissioned-accent);">0</strong> | 
+            Errors: <strong id="importSummaryErrors" style="color: var(--critical-accent);">0</strong>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" id="btnCancelImport">Discard</button>
+          <button type="button" class="btn-primary" id="btnConfirmImport" disabled>Import Selected Records</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Logo Lightbox -->
+  <div class="modal-backdrop" id="logoLightboxModal">
+    <div style="position: relative; max-width: 90%; max-height: 90%;">
+      <button class="modal-close-btn" id="btnLogoLightboxClose" style="position: absolute; top: -45px; right: 0; color: white; font-size: 2.5rem; background: none; border: none; cursor: pointer; line-height: 1;">&times;</button>
+      <img src="stalker.png" alt="Stalker Large" style="max-width: 100%; max-height: 80vh; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: block;">
+    </div>
+  </div>
+
+  <script src="app.js?v=6"></script>
+</body>
+</html>

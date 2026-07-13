@@ -219,6 +219,24 @@ async function loadData() {
     
     if (projError) throw projError;
 
+    // Sort dbProjects based on saved custom order in localStorage
+    const savedOrderStr = localStorage.getItem('inst_projects_order');
+    if (savedOrderStr) {
+      try {
+        const savedOrder = JSON.parse(savedOrderStr);
+        dbProjects.sort((a, b) => {
+          let idxA = savedOrder.indexOf(a.id);
+          let idxB = savedOrder.indexOf(b.id);
+          if (idxA === -1) idxA = 9999;
+          if (idxB === -1) idxB = 9999;
+          if (idxA !== idxB) return idxA - idxB;
+          return new Date(a.created_at) - new Date(b.created_at);
+        });
+      } catch (e) {
+        console.error("Failed to parse project order", e);
+      }
+    }
+
     // 2. Fetch all instruments from Supabase
     const { data: dbInstruments, error: instError } = await supabaseClient
       .from('instruments')
@@ -307,6 +325,7 @@ function saveData() {
   localStorage.setItem('inst_selected_overview_ids', JSON.stringify(selectedOverviewProjIds));
   localStorage.setItem('inst_theme', theme);
   localStorage.setItem('inst_bar_chart_slots', JSON.stringify(barChartSlots));
+  localStorage.setItem('inst_projects_order', JSON.stringify(projects.map(p => p.id)));
 }
 
 // System Time Clock

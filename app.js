@@ -10,6 +10,7 @@ let selectedOverviewProjIds = []; // IDs of sub-projects selected in Global over
 let theme = 'light'; // 'light' or 'dark' theme
 let draggedProjectId = null; // Store ID of project being dragged
 let selectedRowIds = []; // IDs of selected rows in table for batch operations
+let barChartSlots = []; // Slots configuration for comparison bar chart: [{ id, show, projectId, color }]
 
 // Supabase Configuration API Credentials
 const SUPABASE_URL = 'https://fweihrswsepkbsevsdll.supabase.co';
@@ -207,6 +208,7 @@ async function loadData() {
   const savedView = localStorage.getItem('inst_current_view');
   const savedSelectedIds = localStorage.getItem('inst_selected_overview_ids');
   const savedTheme = localStorage.getItem('inst_theme');
+  const savedSlots = localStorage.getItem('inst_bar_chart_slots');
 
   try {
     // 1. Fetch all projects from Supabase
@@ -268,6 +270,30 @@ async function loadData() {
   } else {
     document.body.classList.remove('dark-theme');
   }
+
+  // Load bar chart slots configurations
+  if (savedSlots) {
+    barChartSlots = JSON.parse(savedSlots);
+    
+    // Auto-validate slots to ensure selected projectIds still exist
+    barChartSlots.forEach(slot => {
+      if (slot.projectId && !projects.some(p => p.id === slot.projectId)) {
+        slot.projectId = projects[0]?.id || '';
+      }
+    });
+  } else {
+    // Initialize default slots based on first 4 projects (or less if there are fewer projects)
+    barChartSlots = [];
+    const defaultPalette = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#ef4444', '#06b6d4', '#14b8a6'];
+    projects.slice(0, 4).forEach((p, idx) => {
+      barChartSlots.push({
+        id: 'slot-' + Date.now() + '-' + idx,
+        show: true,
+        projectId: p.id,
+        color: defaultPalette[idx % defaultPalette.length]
+      });
+    });
+  }
   
   renderProjectList();
   renderActiveView();
@@ -280,6 +306,7 @@ function saveData() {
   localStorage.setItem('inst_current_view', currentView);
   localStorage.setItem('inst_selected_overview_ids', JSON.stringify(selectedOverviewProjIds));
   localStorage.setItem('inst_theme', theme);
+  localStorage.setItem('inst_bar_chart_slots', JSON.stringify(barChartSlots));
 }
 
 // System Time Clock
@@ -871,6 +898,7 @@ function renderGlobalDashboard() {
     if (isSelected) {
       aggregatedInstruments = aggregatedInstruments.concat(proj.instruments);
       subProjectAverages.push({
+        id: proj.id,
         name: proj.name,
         avgProgress: avg,
         instCount: total
@@ -910,61 +938,190 @@ function renderGlobalDashboard() {
   const gridColor = isDark ? '#1e293b' : '#f1f5f9';
   const chartBorderColor = isDark ? '#131926' : '#ffffff';
   
-  // 2. Render Charts
-  if (statusChartInstance) statusChartInstance.destroy();
+  // 2. Render Milestone Completion Overview Progress List
   if (areaChartInstance) areaChartInstance.destroy();
   
-  // Donut Chart: Aggregated status
-  const statusCtx = document.getElementById('statusChart').getContext('2d');
-  
-  let pending = 0, inProgress = 0, comm = 0, calib = 0;
-  aggregatedInstruments.forEach(i => {
-    if (i.status === 'Pending') pending++;
-    else if (i.status === 'In Progress') inProgress++;
-    else if (i.status === 'Calibrated') calib++;
-    else if (i.status === 'Commissioned') comm++;
-  });
+  const progressListContainer = document.getElementById('milestoneProgressList');
+  if (progressListContainer) {
+    const instPct = total > 0 ? Math.round((installed / total) * 100) : 0;
+    const cabPct = total > 0 ? Math.round((cabling / total) * 100) : 0;
+    const loopPct = total > 0 ? Math.round((loopCheck / total) * 100) : 0;
+    const calPct = total > 0 ? Math.round((calibrated / total) * 100) : 0;
 
-  statusChartInstance = new Chart(statusCtx, {
-    type: 'doughnut',
-    data: {
-      labels: ['Pending', 'In Progress', 'Calibrated', 'Commissioned'],
-      datasets: [{
-        data: [pending, inProgress, calib, comm],
-        backgroundColor: ['#64748b', '#f59e0b', '#6366f1', '#10b981'],
-        borderWidth: 2,
-        borderColor: chartBorderColor,
-        hoverOffset: 6
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'right',
-          labels: {
-            font: { family: 'Plus Jakarta Sans', size: 11 },
-            color: labelColor
-          }
-        }
-      },
-      cutout: '65%'
-    }
-  });
+    const milestonesData = [
+      { name: 'Installed', pct: instPct, count: installed, color: '#f59e0b' },
+      { name: 'Cabling', pct: cabPct, count: cabling, color: '#6366f1' },
+      { name: 'Loop Check', pct: loopPct, count: loopCheck, color: '#10b981' },
+      { name: 'Calibrated', pct: calPct, count: calibrated, color: '#64748b' }
+    ];
+
+    progressListContainer.innerHTML = '';
+    
+    milestonesData.forEach(item => {
+      const itemEl = document.createElement('div');
+      itemEl.className = 'milestone-progress-item';
+      
+      itemEl.innerHTML = `
+        <div class="milestone-progress-info">
+          <span class="milestone-progress-label">
+            <span class="milestone-progress-dot" style="background-color: ${item.color};"></span>
+            ${item.name}
+          </span>
+          <span class="milestone-progress-stats">
+            <strong>${item.count}</strong> / ${total} Units (${item.pct}%)
+          </span>
+        </div>
+        <div class="milestone-progress-track">
+          <div class="milestone-progress-fill" style="background-color: ${item.color}; width: 0%;"></div>
+        </div>
+      `;
+      
+      progressListContainer.appendChild(itemEl);
+      
+      // Animate the fill width on next frame
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const fillEl = itemEl.querySelector('.milestone-progress-fill');
+          if (fillEl) fillEl.style.width = `${item.pct}%`;
+        }, 50);
+      });
+    });
+  }
   
   // Bar Chart: Sub-Project Comparison
-  const labels = subProjectAverages.map(item => item.name);
-  const dataVals = subProjectAverages.map(item => item.avgProgress);
-  
-  const areaCtx = document.getElementById('areaChart').getContext('2d');
-  const areaCardHeader = document.querySelector('#chartsSection .chart-card:last-child .chart-card-header');
-  if (areaCardHeader) {
-    areaCardHeader.innerHTML = `
-      <h3>Progress Comparison by Sub-Project</h3>
-      <p>Average completion progress percentage (%) for each selected sub-project</p>
-    `;
+  // 1. Prepare Bar Chart Data from slots configuration
+  const labels = [];
+  const dataVals = [];
+  const backgroundColors = [];
+
+  barChartSlots.forEach(slot => {
+    if (slot.show && slot.projectId) {
+      const proj = projects.find(p => p.id === slot.projectId);
+      if (proj) {
+        labels.push(proj.name);
+        
+        // Calculate progress percentage
+        const total = proj.instruments.length;
+        let avg = 0;
+        if (total > 0) {
+          const sum = proj.instruments.reduce((acc, c) => acc + c.progress, 0);
+          avg = Math.round(sum / total);
+        }
+        dataVals.push(avg);
+        backgroundColors.push(slot.color);
+      }
+    }
+  });
+
+  // 2. Render Slots Config Rows inside #barSlotsContainer
+  const slotsContainer = document.getElementById('barSlotsContainer');
+  if (slotsContainer) {
+    slotsContainer.innerHTML = '';
+    
+    barChartSlots.forEach(slot => {
+      const slotRow = document.createElement('div');
+      slotRow.className = 'bar-slot-row';
+      
+      // Build options with selected state
+      const options = projects.map(p => {
+        return `<option value="${p.id}" ${p.id === slot.projectId ? 'selected' : ''}>${p.name}</option>`;
+      }).join('');
+      
+      const selectHTML = `
+        <select class="slot-project-select">
+          <option value="" ${!slot.projectId ? 'selected' : ''}>-- Choose Sub-Project --</option>
+          ${options}
+        </select>
+      `;
+      
+      const deleteButtonHTML = barChartSlots.length > 1 
+        ? `<button type="button" class="btn-delete-slot" title="Delete Slot">
+             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+           </button>`
+        : '';
+        
+      slotRow.innerHTML = `
+        <input type="checkbox" class="slot-checkbox" ${slot.show ? 'checked' : ''} title="Show/Hide in chart">
+        ${selectHTML}
+        <input type="color" class="slot-color-picker" value="${slot.color}" title="Choose color">
+        ${deleteButtonHTML}
+      `;
+      
+      // Bind checkbox change
+      const chk = slotRow.querySelector('.slot-checkbox');
+      chk.onchange = (e) => {
+        slot.show = e.target.checked;
+        saveData();
+        renderGlobalDashboard();
+      };
+      
+      // Bind select change
+      const select = slotRow.querySelector('.slot-project-select');
+      select.onchange = (e) => {
+        slot.projectId = e.target.value;
+        saveData();
+        renderGlobalDashboard();
+      };
+      
+      // Bind color picker input (live updates while dragging)
+      const cp = slotRow.querySelector('.slot-color-picker');
+      cp.oninput = (e) => {
+        const newColor = e.target.value;
+        slot.color = newColor;
+        
+        // Live update chart color
+        if (areaChartInstance) {
+          const proj = projects.find(p => p.id === slot.projectId);
+          if (proj) {
+            const idx = labels.indexOf(proj.name);
+            if (idx !== -1) {
+              areaChartInstance.data.datasets[0].backgroundColor[idx] = newColor;
+              areaChartInstance.data.datasets[0].hoverBackgroundColor[idx] = newColor;
+              areaChartInstance.update('none'); // silent update
+            }
+          }
+        }
+      };
+      
+      // Save color picker when finished dragging
+      cp.onchange = () => {
+        saveData();
+      };
+      
+      // Bind delete button
+      if (barChartSlots.length > 1) {
+        const btnDel = slotRow.querySelector('.btn-delete-slot');
+        btnDel.onclick = () => {
+          barChartSlots = barChartSlots.filter(s => s.id !== slot.id);
+          saveData();
+          renderGlobalDashboard();
+        };
+      }
+      
+      slotsContainer.appendChild(slotRow);
+    });
   }
+
+  // 3. Bind Add Slot Button
+  const btnAddSlot = document.getElementById('btnAddBarSlot');
+  if (btnAddSlot) {
+    btnAddSlot.onclick = () => {
+      const defaultPalette = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#ef4444', '#06b6d4', '#14b8a6'];
+      // Assign the first available project that is not already in the slots, otherwise default to first project
+      const unusedProj = projects.find(p => !barChartSlots.some(s => s.projectId === p.id));
+      
+      barChartSlots.push({
+        id: 'slot-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+        show: true,
+        projectId: unusedProj ? unusedProj.id : (projects[0]?.id || ''),
+        color: defaultPalette[barChartSlots.length % defaultPalette.length]
+      });
+      saveData();
+      renderGlobalDashboard();
+    };
+  }
+
+  const areaCtx = document.getElementById('areaChart').getContext('2d');
   
   areaChartInstance = new Chart(areaCtx, {
     type: 'bar',
@@ -973,10 +1130,12 @@ function renderGlobalDashboard() {
       datasets: [{
         label: 'Completion Progress %',
         data: dataVals.length > 0 ? dataVals : [0],
-        backgroundColor: '#2563eb',
+        backgroundColor: backgroundColors,
+        hoverBackgroundColor: backgroundColors,
         borderRadius: 6,
-        barThickness: 24,
-        hoverBackgroundColor: '#1d4ed8'
+        borderWidth: 0,
+        barThickness: 36,
+        maxBarThickness: 36
       }]
     },
     options: {
@@ -986,22 +1145,32 @@ function renderGlobalDashboard() {
         y: {
           beginAtZero: true,
           max: 100,
+          grid: { color: gridColor },
           ticks: {
+            color: labelColor,
             font: { family: 'Plus Jakarta Sans', size: 10 },
-            color: labelColor
-          },
-          grid: { color: gridColor }
+            callback: function(value) { return value + '%'; },
+            stepSize: 20,
+            padding: 30
+          }
         },
         x: {
+          grid: { display: false },
           ticks: {
-            font: { family: 'Plus Jakarta Sans', size: 10 },
-            color: labelColor
-          },
-          grid: { display: false }
+            color: labelColor,
+            font: { family: 'Plus Jakarta Sans', size: 10, weight: '600' }
+          }
         }
       },
       plugins: {
-        legend: { display: false }
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return ` Progress: ${context.parsed.y}%`;
+            }
+          }
+        }
       }
     }
   });
@@ -1836,4 +2005,127 @@ function setupEventListeners() {
       }
     };
   }
+
+  // Copy Chart Button Click Handler (PowerPoint 16:9 Presentation Quality)
+  const btnCopyChart = document.getElementById('btnCopyBarChart');
+  if (btnCopyChart) {
+    btnCopyChart.onclick = () => {
+      if (!areaChartInstance) return;
+      
+      const isDark = document.body.classList.contains('dark-theme');
+      const bgColor = isDark ? '#1e293b' : '#ffffff';
+      const labelColor = isDark ? '#94a3b8' : '#64748b';
+      const gridColor = isDark ? '#1e293b' : '#f1f5f9';
+      
+      // Create a high-res temporary canvas with standard 16:9 slide dimensions
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = 1280;
+      tempCanvas.height = 720;
+      
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.fillStyle = bgColor;
+      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      
+      // Setup optimized options for slide export
+      const exportOptions = {
+        responsive: false,
+        maintainAspectRatio: false,
+        animation: false,
+        layout: {
+          padding: {
+            top: 60,
+            bottom: 60,
+            left: 60,
+            right: 80
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 100,
+            grid: { color: gridColor },
+            ticks: {
+              color: labelColor,
+              font: { family: 'Plus Jakarta Sans', size: 16, weight: '600' },
+              callback: function(value) { return value + '%'; },
+              stepSize: 20,
+              padding: 24
+            }
+          },
+          x: {
+            grid: { display: false },
+            ticks: {
+              color: labelColor,
+              font: { family: 'Plus Jakarta Sans', size: 16, weight: '600' }
+            }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          title: { display: false }
+        }
+      };
+      
+      // Render chart on the offscreen 16:9 canvas
+      const exportChart = new Chart(tempCtx, {
+        type: 'bar',
+        data: {
+          labels: areaChartInstance.data.labels,
+          datasets: [{
+            label: 'Completion Progress %',
+            data: areaChartInstance.data.datasets[0].data,
+            backgroundColor: areaChartInstance.data.datasets[0].backgroundColor,
+            borderRadius: 8,
+            borderWidth: 0,
+            barThickness: 48,
+            maxBarThickness: 48
+          }]
+        },
+        options: exportOptions
+      });
+      
+      // Export to clipboard
+      tempCanvas.toBlob(function(blob) {
+        exportChart.destroy(); // clean up temporary chart instance
+        
+        if (!blob) {
+          alert("Failed to generate image.");
+          return;
+        }
+        
+        try {
+          const item = new ClipboardItem({ "image/png": blob });
+          navigator.clipboard.write([item]).then(function() {
+            const originalHTML = btnCopyChart.innerHTML;
+            btnCopyChart.innerHTML = `
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              <span style="color: #10b981; font-weight: 700;">Copied!</span>
+            `;
+            setTimeout(() => {
+              btnCopyChart.innerHTML = originalHTML;
+            }, 2000);
+          }).catch(function(err) {
+            console.error("Clipboard write error: ", err);
+            fallbackDownload(blob);
+          });
+        } catch (e) {
+          console.error("Clipboard API error: ", e);
+          fallbackDownload(blob);
+        }
+      }, "image/png");
+    };
+  }
+}
+
+// Fallback helper to download chart as image file
+function fallbackDownload(blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `progress_chart_${Date.now()}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  alert("Clipboard access blocked. The chart image has been downloaded as a file instead!");
 }

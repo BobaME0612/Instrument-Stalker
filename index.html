@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Instrument Installation Tracking Dashboard</title>
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=6">
   <!-- Chart.js for charts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- SheetJS for Excel/CSV processing -->
@@ -155,24 +155,42 @@
 
       <!-- Analytics Charts -->
       <section class="analytics-grid" aria-label="Visual Progress Analytics" id="chartsSection">
-        <!-- Status Donut Chart -->
-        <div class="chart-card">
+        <!-- Milestone Completion Overview Progress List -->
+        <div class="chart-card" style="align-self: start;">
           <div class="chart-card-header">
-            <h3>Status Distribution</h3>
-            <p>Count of instruments by current milestone status</p>
+            <h3>Milestone Completion Overview</h3>
+            <p>Overall count of completed milestones across all projects</p>
           </div>
-          <div class="chart-wrapper">
-            <canvas id="statusChart"></canvas>
+          <div id="milestoneProgressList" style="display: flex; flex-direction: column; gap: 18px; margin-top: 12px;">
+            <!-- Dynamic progress bars -->
           </div>
         </div>
-        <!-- Progress by Area Bar Chart -->
+        <!-- Progress Comparison by Sub-Project Bar Chart -->
         <div class="chart-card">
-          <div class="chart-card-header">
-            <h3>Completion Progress by Area</h3>
-            <p>Average installation progress percentage (%) across plant locations</p>
+          <div class="chart-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
+            <div style="flex: 1;">
+              <h3>Progress Comparison by Sub-Project</h3>
+              <p>Average completion progress percentage (%) for each selected sub-project</p>
+            </div>
+            <button type="button" class="btn-secondary" id="btnCopyBarChart" style="padding: 6px 12px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;" title="Copy chart to clipboard as image">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              Copy Chart
+            </button>
           </div>
-          <div class="chart-wrapper">
+          <div class="chart-wrapper" style="margin: 8px auto 0 auto; aspect-ratio: 16 / 9; width: 100%; max-width: 900px; height: auto; flex-shrink: 0;">
             <canvas id="areaChart"></canvas>
+          </div>
+          <div class="bar-chart-controls" style="margin-top: 14px; border-top: 1px dashed var(--border-subtle); padding-top: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Configure Bar Chart Slots:</span>
+              <div id="barSlotsContainer" style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                <!-- Dynamic slot rows: checkbox (show/hide), select (sub-project dropdown), color picker -->
+              </div>
+              <button type="button" class="btn-secondary" id="btnAddBarSlot" style="margin-top: 8px; align-self: flex-start; padding: 6px 12px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Add Project Slot
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -452,6 +470,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=35"></script>
 </body>
 </html>

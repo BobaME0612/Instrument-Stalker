@@ -560,8 +560,154 @@ main.main-content {
   flex-direction: column;
 }
 
+/* Bar Chart controls & slot configurations */
+#barSlotsContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.bar-slot-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 4px 8px;
+  width: 100%;
+}
+
+.bar-slot-row input[type="checkbox"] {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+.bar-slot-row select {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  font-family: var(--font-main);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}
+
+.bar-slot-row select:focus {
+  border-color: var(--primary);
+}
+
+.bar-slot-row input[type="color"] {
+  -webkit-appearance: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0px;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  background: none;
+  padding: 0;
+  margin: 0;
+  transition: transform var(--transition-fast);
+}
+
+.bar-slot-row input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.bar-slot-row input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 0px;
+}
+
+.bar-slot-row input[type="color"]:hover {
+  transform: scale(1.08);
+}
+
+.bar-slot-row .btn-delete-slot {
+  background: none;
+  border: none;
+  color: var(--text-light);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.bar-slot-row .btn-delete-slot:hover {
+  color: var(--critical-accent);
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
 .chart-card-header {
   margin-bottom: 16px;
+}
+
+/* Milestone progress bars */
+.milestone-progress-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.milestone-progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.milestone-progress-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.milestone-progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.milestone-progress-stats {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.milestone-progress-stats strong {
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.milestone-progress-track {
+  width: 100%;
+  height: 10px;
+  background-color: var(--border-subtle);
+  border-radius: 5px;
+  overflow: hidden;
+  position: relative;
+}
+
+.milestone-progress-fill {
+  height: 100%;
+  border-radius: 5px;
+  width: 0%;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .chart-card h3 {
